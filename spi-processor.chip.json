@@ -1,0 +1,15 @@
+{
+  "name": "spi-processor",
+  "author": "Wojciech Domański",
+  "pins": [
+    "GND",
+    "VCC",
+    "",
+    "",
+    "CS",
+    "MISO",
+    "MOSI",
+    "SCK"
+  ],
+  "controls": []
+}

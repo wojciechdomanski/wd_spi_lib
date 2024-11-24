@@ -1,0 +1,8 @@
+[wokwi]
+version = 1
+firmware = 'build/spi_example.uf2' 
+elf = 'build/spi_example.elf'
+
+[[chip]]
+name = 'spi-processor'  # To use the chip in diagram.json, add a part with "chip-spi-processor" type.
+binary = 'spi-processor.chip.wasm'

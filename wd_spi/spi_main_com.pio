@@ -1,0 +1,77 @@
+.program spi_main_0
+.side_set 1
+.wrap_target
+    out pins, 1 side 0 [1]  ; Output data bit on MOSI, set SCK low, stall here on empty
+    in pins, 1 side 1 [1]   ; Read data bit from MISO, set SCK high
+.wrap
+
+.program spi_main_1
+.side_set 1
+.wrap_target
+    out x, 1    side 0     ; Stall here on empty, set SCK low
+    mov pins, x side 1 [1] ; Output data, set SCK high
+    in pins, 1  side 0     ; Input data, set SCK low
+.wrap
+
+.program spi_main_2
+.side_set 1
+.wrap_target
+    out pins, 1 side 1 [1] ; Output data bit on MOSI, set SCK high, stall here on empty
+    in pins, 1 side 0 [1]  ; Read data bit from MISO, set SCK low
+.wrap
+
+.program spi_main_3
+.side_set 1
+.wrap_target
+    out pins, 1 side 0     ; Output data bit on MOSI, set SCK low, stall here on empty
+    nop side 1             ; No operation, set SCK high
+    in pins, 1 side 0 [1]  ; Input data, set SCK low
+.wrap
+
+
+% c-sdk {
+#include "hardware/gpio.h"
+static inline void spi_initialize(PIO pio, uint8_t sm, uint offset, uint8_t mode, uint8_t n_bits,
+        float clkdiv, uint8_t pin_sck, uint8_t pin_mosi, uint8_t pin_miso) {
+    // Get default config for choosen mode
+    pio_sm_config c;
+    switch (mode) {
+    case 0:
+        c = spi_main_0_program_get_default_config(offset);
+        break;
+    case 1:
+        c = spi_main_1_program_get_default_config(offset);
+        break;
+    case 2:
+        c = spi_main_2_program_get_default_config(offset);
+        break;
+    case 3:
+        c = spi_main_3_program_get_default_config(offset);
+        break;
+    }
+
+    // Setup pins
+    sm_config_set_out_pins(&c, pin_mosi, 1);
+    sm_config_set_in_pins(&c, pin_miso);
+    sm_config_set_sideset_pins(&c, pin_sck);
+
+    // MSB-first (shift to left, auto push/pull, threshold=nbits)
+    sm_config_set_out_shift(&c, false, true, n_bits);
+    sm_config_set_in_shift(&c, false, true, n_bits);
+    sm_config_set_clkdiv(&c, clkdiv);
+
+    // MOSI, SCK output are low, MISO is input
+    pio_sm_set_pins_with_mask(pio, sm, 0, (1u << pin_sck) | (1u << pin_mosi));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1u << pin_sck) | (1u << pin_mosi), (1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
+    pio_gpio_init(pio, pin_mosi);
+    pio_gpio_init(pio, pin_miso);
+    pio_gpio_init(pio, pin_sck);
+
+    // SPI is synchronous, so bypass input synchroniser to reduce input delay
+    hw_set_bits(&pio->input_sync_bypass, 1u << pin_miso);
+
+    // Initialize and enable state machine
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
